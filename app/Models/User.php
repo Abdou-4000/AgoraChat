@@ -87,4 +87,23 @@ class User extends Authenticatable
     {
         return $this->hasMany(DirectMessage::class, 'receiver_id');
     }
+    
+    public function recentConversations($limit = 5)
+    {
+        // Get IDs of users with whom the current user has had conversations
+        $userIds = DirectMessage::where('sender_id', $this->id)
+            ->orWhere('receiver_id', $this->id)
+            ->select('sender_id', 'receiver_id')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($message) {
+                // Get the ID of the other user in the conversation
+                return $message->sender_id == $this->id ? $message->receiver_id : $message->sender_id;
+            })
+            ->unique()
+            ->take($limit);
+            
+        // Get the user models
+        return User::whereIn('id', $userIds)->get();
+    }
 }

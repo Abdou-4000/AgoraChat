@@ -7,6 +7,7 @@ use App\Models\DirectMessage;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class DirectMessagingController extends Controller
 {
@@ -45,15 +46,26 @@ class DirectMessagingController extends Controller
             'sender_id' => auth()->id(),
             'receiver_id' => $receiverId,
             'content' => $request->content,
+            'read' => false,
         ]);
         
         // Load the sender relationship for broadcasting
         $message->load('sender');
         
-        // Broadcast to the receiver
-        broadcast(new DirectMessageSent($message));
+        // Invalidate conversation cache
+        $conversationKey = 'conversation:' . min(auth()->id(), $receiverId) . ':' . max(auth()->id(), $receiverId);
+        Cache::forget($conversationKey);
         
-        return response()->json($message);
+        // Broadcast to the receiver
+        broadcast(new DirectMessageSent($message))->toOthers();
+        
+        return response()->json([
+            'id' => $message->id,
+            'content' => $message->content,
+            'sender_id' => $message->sender_id,
+            'sender_name' => $message->sender->name,
+            'created_at' => $message->created_at->format('M j, g:i A'),
+        ]);
     }
     
     public function showConversation($userId)
@@ -61,17 +73,22 @@ class DirectMessagingController extends Controller
         // Get the other user
         $otherUser = User::findOrFail($userId);
         
-        // Get messages between current user and the other user
-        $messages = DirectMessage::where(function($query) use ($userId) {
-            $query->where('sender_id', auth()->id())
-                  ->where('receiver_id', $userId);
-        })->orWhere(function($query) use ($userId) {
-            $query->where('sender_id', $userId)
-                  ->where('receiver_id', auth()->id());
-        })
-        ->with('sender')
-        ->orderBy('created_at')
-        ->get();
+        // Generate a cache key for this conversation
+        $conversationKey = 'conversation:' . min(auth()->id(), $userId) . ':' . max(auth()->id(), $userId);
+        
+        // Try to get messages from Redis cache first
+        $messages = Cache::remember($conversationKey, 300, function() use ($userId) {
+            return DirectMessage::where(function($query) use ($userId) {
+                $query->where('sender_id', auth()->id())
+                    ->where('receiver_id', $userId);
+            })->orWhere(function($query) use ($userId) {
+                $query->where('sender_id', $userId)
+                    ->where('receiver_id', auth()->id());
+            })
+            ->with('sender')
+            ->orderBy('created_at')
+            ->get();
+        });
         
         // Mark unread messages as read
         DirectMessage::where('sender_id', $userId)
@@ -79,11 +96,16 @@ class DirectMessagingController extends Controller
             ->where('read', false)
             ->update(['read' => true]);
         
+        // Invalidate cache since we've changed read status
+        Cache::forget($conversationKey);
+        
         return view('messages.show', compact('messages', 'otherUser'));
     }
     
     public function getLatestMessages($userId)
     {
+        
+        
         // For AJAX polling or initial load in SPA
         $messages = DirectMessage::where(function($query) use ($userId) {
             $query->where('sender_id', auth()->id())
@@ -98,6 +120,18 @@ class DirectMessagingController extends Controller
         ->get()
         ->reverse();
         
-        return response()->json($messages);
+        return response()->json([
+            'messages' => $messages
+        ]);
+    }
+    public function markAsRead($userId)
+    {
+        // Mark all unread messages from this user as read
+        DirectMessage::where('sender_id', $userId)
+            ->where('receiver_id', auth()->id())
+            ->where('read', false)
+            ->update(['read' => true]);
+        
+        return response()->json(['success' => true]);
     }
 }

@@ -32,7 +32,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/messages/{user}', [DirectMessagingController::class, 'showConversation'])->name('messages.conversation');
     Route::post('/messages/{user}', [DirectMessagingController::class, 'sendMessage'])->name('messages.send');
     Route::get('/messages/{user}/latest', [DirectMessagingController::class, 'getLatestMessages'])->name('messages.latest');
+    Route::post('/messages/{user}/read', [DirectMessagingController::class, 'markAsRead'])->name('messages.markRead');
 
+    Route::post('/chat', [ChatController::class, 'store'])->name('chat.store');
 });
 
 require __DIR__.'/auth.php';

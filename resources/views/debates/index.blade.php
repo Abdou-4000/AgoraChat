@@ -40,6 +40,7 @@
                                     </div>
                                 </div>
                                 
+                                
                                 @if(!$debate->votes()->where('user_id', auth()->id())->exists())
                                     <form method="POST" action="{{ route('debates.vote', $debate) }}" class="flex gap-2">
                                         @csrf

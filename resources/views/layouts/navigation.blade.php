@@ -19,6 +19,9 @@
                     <x-nav-link :href="route('debates.index')" :active="request()->routeIs('debates.*')">
                         {{ __('Debates') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('messages.index')" :active="request()->routeIs('messages.*')">
+                        {{ __('Messages') }}
+                    </x-nav-link>
                 </div>
             </div>
 
@@ -89,6 +92,9 @@
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('debates.index')" :active="request()->routeIs('debates.*')">
                 {{ __('Debates') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('messages.index')" :active="request()->routeIs('messages.*')">
+                {{ __('Direct Messages') }}
             </x-responsive-nav-link>
         </div>
 

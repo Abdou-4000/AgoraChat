@@ -19,6 +19,7 @@ return new class extends Migration
             // Indexes for fast lookups
             $table->index(['sender_id', 'receiver_id', 'created_at']);
             $table->index(['receiver_id', 'sender_id', 'created_at']);
+            $table->index(['receiver_id', 'read']);
         });
     }
 
